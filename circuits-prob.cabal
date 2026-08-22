@@ -1,0 +1,77 @@
+cabal-version: 3.0
+name: circuits-prob
+version: 0.1.0.0
+license: BSD-3-Clause
+license-file: LICENSE
+copyright: Tony Day (c) 2026
+category: math
+author: Tony Day
+maintainer: tonyday567@gmail.com
+homepage: https://github.com/tonyday567/circuits-prob#readme
+bug-reports: https://github.com/tonyday567/circuits-prob/issues
+synopsis: probability arrow over circuits
+description:
+  The double-dual probability arrow and Markov-category oracles,
+  split out of core circuits so the substrate can stay focused on
+  wiring and processes.
+
+build-type: Simple
+tested-with:
+  ghc ==9.10.1
+  ghc ==9.12.2
+  ghc ==9.14.1
+
+extra-doc-files:
+  ChangeLog.md
+  readme.md
+
+source-repository head
+  type: git
+  location: https://github.com/tonyday567/circuits-prob
+
+common ghc-options-stanza
+  ghc-options:
+    -Wall
+    -Wno-unused-imports
+    -Wcompat
+    -Widentities
+    -Wincomplete-record-updates
+    -Wincomplete-uni-patterns
+    -Wpartial-fields
+    -Wredundant-constraints
+
+library
+  import: ghc-options-stanza
+  default-language: GHC2024
+  hs-source-dirs: src
+  exposed-modules:
+    Circuit.Prob
+    Circuit.Markov
+
+  build-depends:
+    base >=4.20 && <5,
+    circuits >=0.3 && <0.4,
+
+executable circuits-prob-axioma
+  import: ghc-options-stanza
+  default-language: GHC2024
+  hs-source-dirs: app
+  main-is: axioma.hs
+  build-depends:
+    base >=4.20 && <5,
+    circuits >=0.3 && <0.4,
+    circuits-prob,
+    circuits-tools,
+
+executable circuits-prob-axioma-pipeline
+  import: ghc-options-stanza
+  default-language: GHC2024
+  hs-source-dirs: app
+  main-is: axioma-pipeline.hs
+  other-modules:
+    ProbOracles
+  build-depends:
+    base >=4.20 && <5,
+    circuits >=0.3 && <0.4,
+    circuits-prob,
+    circuits-tools,
