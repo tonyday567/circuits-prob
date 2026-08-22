@@ -17,7 +17,7 @@
 --   @discard . f = discard@.  In 'Prob' this is exactly the mass-1 fragment;
 --   in 'FinRel' it is the total relations.
 -- * A map @f :: a -> b@ is /copy-natural/ when
---   @copy . f = par f f . copy@.  These are the deterministic maps: partial
+--   @copy . f = tensor f f . copy@.  These are the deterministic maps: partial
 --   functions in 'FinRel', embedded functions in 'Prob'.
 --
 -- The copy-natural maps form a cartesian subcategory; the discard-natural
@@ -32,15 +32,15 @@ module Circuit.Markov
   )
 where
 
-import Circuit.Category (Category (..))
 import Circuit.Bimonoid (Copy (..), Discard (..))
+import Circuit.Category (Category (..))
 import Circuit.Tensor (Tensor (..))
 import Prelude hiding (id, (.))
 
 -- | Test whether @f@ is a homomorphism from the copy comonoid on @a@ to the
 -- copy comonoid on @b@.
 --
--- > copy . f == par f f . copy
+-- > copy . f == tensor f f . copy
 --
 -- The equality predicate is supplied by the caller because many bases
 -- (notably 'Prob') do not admit decidable equality of morphisms.  A finite
@@ -51,7 +51,7 @@ copyNatural ::
   (arr a (b, b) -> arr a (b, b) -> Bool) ->
   arr a b ->
   Bool
-copyNatural eq f = eq (copy . f) (par f f . copy)
+copyNatural eq f = eq (copy . f) (tensor f f . copy)
 {-# INLINE copyNatural #-}
 
 -- | Test whether @f@ is a homomorphism from the discard comonoid on @a@ to
