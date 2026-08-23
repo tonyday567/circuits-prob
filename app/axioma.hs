@@ -11,7 +11,7 @@
 module Main where
 
 import Circuit.Category (K (..), id, (.))
-import Circuit.Poly (Mono, System, monoIn, runSystem, system)
+import Circuit.Poly (Mono)
 import Circuit.Prob
   ( Prob (..),
     embed,
@@ -24,6 +24,7 @@ import Circuit.Prob
     traceE,
     traceEN,
   )
+import Circuit.System (System, monoIn, runSystem, system)
 import Circuit.Tools.Test (approx, check)
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
 import Data.List (foldl', replicate)
