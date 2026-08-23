@@ -1,6 +1,4 @@
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TypeApplications #-}
 
 -- | Probability oracles for the double-dual arrow.
 --
@@ -26,6 +24,7 @@ import Circuit.Prob
   )
 import Circuit.System (System, monoIn, runSystem, system)
 import Circuit.Tools.Test (approx, check)
+import Control.Monad (replicateM_)
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
 import Data.List (foldl', replicate)
 import Prelude hiding (id, (.))
@@ -285,7 +284,7 @@ chain3IO ref = system $ Prob $ \k -> K $ \(x, (s, _)) -> do
 -- sampled next state into a fresh 'IORef'; this is how we extract the state
 -- from an expectation transformer.
 runTrajectoryIO :: System (Prob (K IO) Double) S3 (Mono () ()) -> Int -> S3 -> IO S3
-runTrajectoryIO sys n s0 = go n s0
+runTrajectoryIO sys = go
   where
     go 0 s = pure s
     go m s = step s >>= go (m - 1)
@@ -306,7 +305,7 @@ mcOccupancy sys nTrials nSteps s0 = do
           S0 -> (c0 + 1, c1, c2)
           S1 -> (c0, c1 + 1, c2)
           S2 -> (c0, c1, c2 + 1)
-  sequence_ (replicate nTrials trial)
+  replicateM_ nTrials trial
   (c0, c1, c2) <- readIORef counts
   let total = fromIntegral nTrials :: Double
   let toDouble :: Int -> Double

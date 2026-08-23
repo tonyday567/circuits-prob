@@ -9,8 +9,8 @@
 -- Split off from 'axioma.hs' because that file had become unwieldy.
 module Main where
 
-import Circuit.Category (id, (.), (.>))
 import Circuit.Bimonoid (Copy (..), Discard (..))
+import Circuit.Category (id, (.), (.>))
 import Circuit.FinRel
 import Circuit.Markov (copyNatural, deterministic, discardNatural)
 import Circuit.Prob (Prob (..), choiceBy, copyP, discardP, embed, fromWeighted, parFG, parGF, score)
@@ -30,8 +30,6 @@ import ProbOracles
     probEqOver,
   )
 import Prelude hiding (curry, id, uncurry, (.))
-
-type F = Bool
 
 type N1 = FinObj 1
 
@@ -64,8 +62,8 @@ centralP ::
   Prob (->) r a b ->
   [Prob (->) r c d] ->
   Bool
-centralP inputs ks parN1 parN2 f gs =
-  all (\g -> probEqOver' inputs ks (parN1 f g) (parN2 f g)) gs
+centralP inputs ks parN1 parN2 f =
+  all (\g -> probEqOver' inputs ks (parN1 f g) (parN2 f g))
 
 -- | Copy-naturality check for the premonoidal 'Prob' base, which has no
 -- canonical 'Tensor' instance.  The caller supplies the nesting ('parFG' or
@@ -132,41 +130,41 @@ continuationsDouble = pairDoubleFns [False, True]
 -- ---------------------------------------------------------------------------
 
 -- | Identity relation on N1 — deterministic.
-finRelId :: FinRel F N1 N1
+finRelId :: FinRel N1 N1
 finRelId = FinRel 1 1 [[True, True]]
 
 -- | Zero map on N1 — deterministic.
-finRelZeroMap :: FinRel F N1 N1
+finRelZeroMap :: FinRel N1 N1
 finRelZeroMap = FinRel 1 1 [[True, False]]
 
 -- | Total relation on N1 — total but not a function.
-finRelTotal :: FinRel F N1 N1
+finRelTotal :: FinRel N1 N1
 finRelTotal = FinRel 1 1 [[True, False], [False, True]]
 
 -- | Neither total nor functional: relates 0 to both 0 and 1.
-finRelNeither :: FinRel F N1 N1
+finRelNeither :: FinRel N1 N1
 finRelNeither = FinRel 1 1 [[False, True]]
 
 -- | The empty relation on N1 — copy-natural but not total.
 --
 -- This is the relevant corner of the FinRel square: it has a valid
 -- diagonal (copy) but no total weakening (discard).
-finRelEmpty :: FinRel F N1 N1
+finRelEmpty :: FinRel N1 N1
 finRelEmpty = FinRel 1 1 []
 
 -- FinRel-specific Markov oracles: 'FinRel' no longer has unconstrained
 -- 'Category'/'Tensor' instances, so we use the named constrained combinators.
-finRelCopyNatural :: FinRel F N1 N1 -> Bool
+finRelCopyNatural :: FinRel N1 N1 -> Bool
 finRelCopyNatural f = copy1 `compFinRel` f == parFinRel f f `compFinRel` copy1
   where
-    copy1 = copy :: FinRel F N1 (N1, N1)
+    copy1 = copy :: FinRel N1 (N1, N1)
 
-finRelDiscardNatural :: FinRel F N1 N1 -> Bool
+finRelDiscardNatural :: FinRel N1 N1 -> Bool
 finRelDiscardNatural f = discard1 `compFinRel` f == discard1
   where
-    discard1 = discard :: FinRel F N1 ()
+    discard1 = discard :: FinRel N1 ()
 
-finRelDeterministic :: FinRel F N1 N1 -> Bool
+finRelDeterministic :: FinRel N1 N1 -> Bool
 finRelDeterministic f = finRelCopyNatural f && finRelDiscardNatural f
 
 -- ---------------------------------------------------------------------------

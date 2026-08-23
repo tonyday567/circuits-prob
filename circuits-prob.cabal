@@ -45,8 +45,8 @@ library
   default-language: GHC2024
   hs-source-dirs: src
   exposed-modules:
-    Circuit.Prob
     Circuit.Markov
+    Circuit.Prob
 
   build-depends:
     base >=4.20 && <5,
@@ -70,6 +70,7 @@ executable circuits-prob-axioma-pipeline
   main-is: axioma-pipeline.hs
   other-modules:
     ProbOracles
+
   build-depends:
     base >=4.20 && <5,
     circuits >=0.3 && <0.4,
