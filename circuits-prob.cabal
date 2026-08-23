@@ -21,10 +21,6 @@ tested-with:
   ghc ==9.12.2
   ghc ==9.14.1
 
-extra-doc-files:
-  ChangeLog.md
-  readme.md
-
 source-repository head
   type: git
   location: https://github.com/tonyday567/circuits-prob
@@ -61,7 +57,7 @@ executable circuits-prob-axioma
     base >=4.20 && <5,
     circuits >=0.3 && <0.4,
     circuits-prob,
-    circuits-tools,
+    circuits-tools >=0.1 && <0.2,
 
 executable circuits-prob-axioma-pipeline
   import: ghc-options-stanza
@@ -75,4 +71,4 @@ executable circuits-prob-axioma-pipeline
     base >=4.20 && <5,
     circuits >=0.3 && <0.4,
     circuits-prob,
-    circuits-tools,
+    circuits-tools >=0.1 && <0.2,
