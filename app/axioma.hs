@@ -107,7 +107,7 @@ metricSpanDistance da db (Span xs s1 t1) (Span ys s2 t2) =
   Tropical $
     maximum
       [ minimum [getTropical (da (s1 x) (s2 y)) + getTropical (db (t2 y) (t1 x)) | y <- ys]
-        | x <- xs
+      | x <- xs
       ]
 
 -- ---------------------------------------------------------------------------
