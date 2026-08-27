@@ -152,8 +152,8 @@ embed h = Prob $ \k -> k . second h
 -- This is the bridge to 'Circuit.Parser.Weighted' and the entry point for
 -- genuine measures in the linear fragment: every entry contributes linearly
 -- to the expectation.
-fromWeighted :: (Num r) => [(b, r)] -> Prob (->) r () b
-fromWeighted xs = Prob $ \k (x, ()) -> sum [w * k (x, b) | (b, w) <- xs]
+fromWeighted :: (Semiring r) => [(b, r)] -> Prob (->) r () b
+fromWeighted xs = Prob $ \k (x, ()) -> foldr sAdd sZero [sMul w (k (x, b)) | (b, w) <- xs]
 {-# INLINE fromWeighted #-}
 
 -- | Scale the result of a continuation.
@@ -169,8 +169,8 @@ score scale = Prob $ \k (x, a) -> scale (k (x, a))
 
 -- | Compute the total mass of an unnormalised morphism against the unit
 -- continuation.
-mass :: r -> Prob (->) r a b -> a -> r
-mass one (Prob f) a = f (const one) ((), a)
+mass :: (Semiring r) => Prob (->) r a b -> a -> r
+mass (Prob f) a = f (const sOne) ((), a)
 {-# INLINE mass #-}
 
 -- | Deterministic copy.  Naturality of this morphism characterises the

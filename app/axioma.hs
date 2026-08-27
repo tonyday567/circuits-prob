@@ -24,7 +24,7 @@ import Circuit.Prob
     traceE,
     traceEN,
   )
-import Circuit.Span (Span (..))
+import Circuit.Span (Span (..), spanDistance)
 import Circuit.System (System, monoIn, runSystem, system)
 import Circuit.Tools.Test (approx, check)
 import Control.Monad (replicateM_)
@@ -97,18 +97,20 @@ tropicalDist :: Int -> Int -> Tropical
 tropicalDist x y = Tropical (abs (fromIntegral x - fromIntegral y))
 
 -- | Directed Hausdorff-style distance between two finite spans.
+--
+-- This is 'Circuit.Span.spanDistance' specialised to the tropical semiring.
+--
+-- The tropical order is @≥@, so the @sup@ (empty-domain value) is the least
+-- element @0@ and the @inf@ (empty-codomain value) is the greatest element
+-- @+∞@.  In 'Semiring' terms that is 'sOne' (multiplicative unit, ordinary 0)
+-- and 'sZero' (additive unit, infinity).
 metricSpanDistance ::
   (a -> a -> Tropical) ->
   (b -> b -> Tropical) ->
   Span a b ->
   Span a b ->
   Tropical
-metricSpanDistance da db (Span xs s1 t1) (Span ys s2 t2) =
-  Tropical $
-    maximum
-      [ minimum [getTropical (da (s1 x) (s2 y)) + getTropical (db (t2 y) (t1 x)) | y <- ys]
-      | x <- xs
-      ]
+metricSpanDistance = spanDistance sOne sZero sMul
 
 -- ---------------------------------------------------------------------------
 -- Keystone: System (Prob (->) r) s (Mono i o)
@@ -376,8 +378,8 @@ main = do
                 ),
         -- Mass detects affineness / discardability
         check "Prob mass detects score breaking affineness" $
-          approx (mass (1.0 :: Double) (score (* 2) . coin) ()) 2.0
-            && approx (mass (1.0 :: Double) coin ()) 1.0,
+          approx (mass (score (* 2) . coin) ()) 2.0
+            && approx (mass coin ()) 1.0,
         -- Traced Either: computability graded by scalar
         check "Prob traceEN converges to 1/p for geometric (error ~ q^fuel)" $
           let e n = ev (traceEN 0 n (geomBody 0.5)) fromIntegral
@@ -425,7 +427,23 @@ main = do
           let spanA = Span [0, 1] id id :: Span Int Int
               spanB = Span [0] id id :: Span Int Int
               d = metricSpanDistance tropicalDist tropicalDist spanA spanB
-           in d == Tropical 2
+           in d == Tropical 2,
+        check "Metric optic: empty codomain apex is distance Infinity" $
+          let spanA = Span [0 :: Int] id id
+              spanEmpty = Span ([] :: [Int]) id id
+           in metricSpanDistance tropicalDist tropicalDist spanA spanEmpty == sZero,
+        check "Metric optic: empty domain apex is distance 0" $
+          let spanA = Span [0 :: Int] id id
+              spanEmpty = Span ([] :: [Int]) id id
+           in metricSpanDistance tropicalDist tropicalDist spanEmpty spanA == sOne,
+        check "Metric optic: triangle inequality holds" $
+          let spanA = Span [0, 1] id id :: Span Int Int
+              spanB = Span [0] id id :: Span Int Int
+              spanC = Span [1] id id :: Span Int Int
+              dAB = metricSpanDistance tropicalDist tropicalDist spanA spanB
+              dBC = metricSpanDistance tropicalDist tropicalDist spanB spanC
+              dAC = metricSpanDistance tropicalDist tropicalDist spanA spanC
+           in getTropical dAC <= getTropical (dAB `sMul` dBC)
       ]
   if and results
     then putStrLn "\nAll tests passed."
