@@ -43,6 +43,7 @@ library
   exposed-modules:
     Circuit.Markov
     Circuit.Prob
+    Circuit.Prob.Metric
 
   build-depends:
     base >=4.20 && <5,

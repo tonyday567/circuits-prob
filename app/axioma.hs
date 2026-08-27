@@ -25,6 +25,7 @@ import Circuit.Prob
     traceE,
     traceEN,
   )
+import Circuit.Prob.Metric (MetricSpace (..), spanDistanceTropical)
 import Circuit.Span (Span (..), spanDistance)
 import Circuit.System (System, monoIn, runSystem, system)
 import Circuit.Tools.Test (approx, check)
@@ -92,26 +93,6 @@ reach target = runProb (traceE walkBody) (\((), s) -> s == target) ((), 0)
 -- residual is remembered on the nose (Circuit.Span), so the sup/inf range over
 -- the apex enumerations.
 -- ---------------------------------------------------------------------------
-
--- | Tropical absolute difference between two 'Int'-valued points.
-tropicalDist :: Int -> Int -> Tropical
-tropicalDist x y = Tropical (abs (fromIntegral x - fromIntegral y))
-
--- | Directed Hausdorff-style distance between two finite spans.
---
--- This is 'Circuit.Span.spanDistance' specialised to the tropical semiring.
---
--- The tropical order is @≥@, so the @sup@ (empty-domain value) is the least
--- element @0@ and the @inf@ (empty-codomain value) is the greatest element
--- @+∞@.  In 'Semiring' terms that is 'sOne' (multiplicative unit, ordinary 0)
--- and 'sZero' (additive unit, infinity).
-metricSpanDistance ::
-  (a -> a -> Tropical) ->
-  (b -> b -> Tropical) ->
-  Span a b ->
-  Span a b ->
-  Tropical
-metricSpanDistance = spanDistance sOne sZero sMul
 
 -- ---------------------------------------------------------------------------
 -- Keystone: System (Prob (->) r) s (Mono i o)
@@ -423,27 +404,27 @@ main = do
         -- Metric equipment optics: directed Hausdorff distance between spans
         check "Metric optic: tropical distance between identical spans is zero" $
           let spanA = Span [0 :: Int] id id :: Span Int Int
-           in metricSpanDistance tropicalDist tropicalDist spanA spanA == Tropical 0,
+           in spanDistanceTropical spanA spanA == Tropical 0,
         check "Metric optic: distance is asymmetric and residual-aware" $
           let spanA = Span [0, 1] id id :: Span Int Int
               spanB = Span [0] id id :: Span Int Int
-              d = metricSpanDistance tropicalDist tropicalDist spanA spanB
+              d = spanDistanceTropical spanA spanB
            in d == Tropical 2,
         check "Metric optic: empty codomain apex is distance Infinity" $
           let spanA = Span [0 :: Int] id id
               spanEmpty = Span ([] :: [Int]) id id
-           in metricSpanDistance tropicalDist tropicalDist spanA spanEmpty == sZero,
+           in spanDistanceTropical spanA spanEmpty == sZero,
         check "Metric optic: empty domain apex is distance 0" $
           let spanA = Span [0 :: Int] id id
               spanEmpty = Span ([] :: [Int]) id id
-           in metricSpanDistance tropicalDist tropicalDist spanEmpty spanA == sOne,
+           in spanDistanceTropical spanEmpty spanA == sOne,
         check "Metric optic: triangle inequality holds" $
           let spanA = Span [0, 1] id id :: Span Int Int
               spanB = Span [0] id id :: Span Int Int
               spanC = Span [1] id id :: Span Int Int
-              dAB = metricSpanDistance tropicalDist tropicalDist spanA spanB
-              dBC = metricSpanDistance tropicalDist tropicalDist spanB spanC
-              dAC = metricSpanDistance tropicalDist tropicalDist spanA spanC
+              dAB = spanDistanceTropical spanA spanB
+              dBC = spanDistanceTropical spanB spanC
+              dAC = spanDistanceTropical spanA spanC
            in getTropical dAC <= getTropical (dAB `sMul` dBC),
         -- The Unital/Tensor split lets optics exist over premonoidal Prob:
         -- identity and composition need only Strength, and identity needs only
