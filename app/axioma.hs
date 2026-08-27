@@ -12,6 +12,8 @@ import Circuit.Category (K (..), id, (.))
 import Circuit.Poly (Mono)
 import Circuit.Prob
   ( Prob (..),
+    Semiring (..),
+    Tropical (..),
     embed,
     fromWeighted,
     mass,
@@ -22,6 +24,7 @@ import Circuit.Prob
     traceE,
     traceEN,
   )
+import Circuit.Span (Span (..))
 import Circuit.System (System, monoIn, runSystem, system)
 import Circuit.Tools.Test (approx, check)
 import Control.Monad (replicateM_)
@@ -76,47 +79,43 @@ reach :: Int -> Bool
 reach target = runProb (traceE walkBody) (\((), s) -> s == target) ((), 0)
 
 -- ---------------------------------------------------------------------------
+-- Metric equipment optics
+--
+-- In [0,∞]-enriched Prof the distance between two spans (s,t) and (a,b) is
+--
+-- @
+--   d((s,t),(a,b)) = sup_x inf_y [ d(s x, a y) + d(b y, t x) ]
+-- @
+--
+-- For finite spans over a tropical scalar this is directly computable.  The
+-- residual is remembered on the nose (Circuit.Span), so the sup/inf range over
+-- the apex enumerations.
+-- ---------------------------------------------------------------------------
+
+-- | Tropical absolute difference between two 'Int'-valued points.
+tropicalDist :: Int -> Int -> Tropical
+tropicalDist x y = Tropical (abs (fromIntegral x - fromIntegral y))
+
+-- | Directed Hausdorff-style distance between two finite spans.
+metricSpanDistance ::
+  (a -> a -> Tropical) ->
+  (b -> b -> Tropical) ->
+  Span a b ->
+  Span a b ->
+  Tropical
+metricSpanDistance da db (Span xs s1 t1) (Span ys s2 t2) =
+  Tropical $
+    maximum
+      [ minimum [getTropical (da (s1 x) (s2 y)) + getTropical (db (t2 y) (t1 x)) | y <- ys]
+        | x <- xs
+      ]
+
+-- ---------------------------------------------------------------------------
 -- Keystone: System (Prob (->) r) s (Mono i o)
 --
 -- The stochastic Moore machine, stepped by expectation. The scalar @r@ selects
 -- the semantics: @Double@ for probability, @Tropical@ for min-plus / Viterbi.
 -- ---------------------------------------------------------------------------
-
--- | A tiny semiring class local to the executable so the same runner works for
--- probability and tropical semantics without pulling in NumHask prelude.
-class Semiring r where
-  sAdd :: r -> r -> r
-  sMul :: r -> r -> r
-  sZero :: r
-  sOne :: r
-
-instance Semiring Double where
-  sAdd = (+)
-  sMul = (*)
-  sZero = 0
-  sOne = 1
-
--- | Min-plus tropical semiring over 'Double'.
---
--- Addition is 'min', multiplication is ordinary addition, the additive unit is
--- positive infinity, and the multiplicative unit is zero.
-newtype Tropical = Tropical {getTropical :: Double}
-  deriving (Eq, Ord, Show)
-
-instance Semiring Tropical where
-  sAdd (Tropical a) (Tropical b) = Tropical (Pre.min a b)
-  sMul (Tropical a) (Tropical b) = Tropical (a + b)
-  sZero = Tropical (1 / 0)
-  sOne = Tropical 0
-
--- | Boolean semiring: addition is disjunction (reachability), multiplication
--- is conjunction (path validity).  This is the model-checking row of the
--- keystone instance table.
-instance Semiring Bool where
-  sAdd = (||)
-  sMul = (&&)
-  sZero = False
-  sOne = True
 
 -- | Run a finite-state stochastic Moore machine by expectation.
 --
@@ -417,7 +416,16 @@ main = do
         checkIO "Keystone: Monte Carlo occupancy after 2 steps" $ do
           ref <- newIORef (RNG 0)
           [p0, p1, p2] <- mcOccupancy (chain3IO ref) 10000 2 S0
-          pure $ abs (p0 - 0.25) < 0.02 && abs (p1 - 0.5) < 0.02 && abs (p2 - 0.25) < 0.02
+          pure $ abs (p0 - 0.25) < 0.02 && abs (p1 - 0.5) < 0.02 && abs (p2 - 0.25) < 0.02,
+        -- Metric equipment optics: directed Hausdorff distance between spans
+        check "Metric optic: tropical distance between identical spans is zero" $
+          let spanA = Span [0 :: Int] id id :: Span Int Int
+           in metricSpanDistance tropicalDist tropicalDist spanA spanA == Tropical 0,
+        check "Metric optic: distance is asymmetric and residual-aware" $
+          let spanA = Span [0, 1] id id :: Span Int Int
+              spanB = Span [0] id id :: Span Int Int
+              d = metricSpanDistance tropicalDist tropicalDist spanA spanB
+           in d == Tropical 2
       ]
   if and results
     then putStrLn "\nAll tests passed."

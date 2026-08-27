@@ -52,6 +52,10 @@ module Circuit.Prob
     -- * Traced Either (explicit, computability varies by scalar)
     traceE,
     traceEN,
+
+    -- * Semiring scalars
+    Semiring (..),
+    Tropical (..),
   )
 where
 
@@ -64,6 +68,44 @@ import Prelude qualified
 -- $setup
 -- >>> import Circuit.Prob
 -- >>> import Prelude hiding (id, (.))
+
+-- | A semiring: an additive monoid and a multiplicative monoid, with
+-- multiplication distributing over addition.
+--
+-- This class is intentionally minimal. It captures the scalar structure
+-- needed by 'Circuit.Prob' without pulling in a full numeric prelude.
+class Semiring r where
+  sAdd :: r -> r -> r
+  sMul :: r -> r -> r
+  sZero :: r
+  sOne :: r
+
+-- | Min-plus tropical semiring over 'Double'.
+--
+-- Addition is 'min', multiplication is ordinary addition, the additive unit
+-- is positive infinity, and the multiplicative unit is zero.
+newtype Tropical = Tropical {getTropical :: Double}
+  deriving (Eq, Ord, Show)
+
+instance Semiring Tropical where
+  sAdd (Tropical a) (Tropical b) = Tropical (Prelude.min a b)
+  sMul (Tropical a) (Tropical b) = Tropical (a + b)
+  sZero = Tropical (1 / 0)
+  sOne = Tropical 0
+
+-- | 'Double' is the usual probability semiring.
+instance Semiring Double where
+  sAdd = (+)
+  sMul = (*)
+  sZero = 0
+  sOne = 1
+
+-- | 'Bool' is the reachability / model-checking semiring.
+instance Semiring Bool where
+  sAdd = (||)
+  sMul = (&&)
+  sZero = False
+  sOne = True
 
 -- | Double-dual embedding of @arr@ with respect to dualizing object @r@.
 --
