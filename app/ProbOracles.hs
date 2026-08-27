@@ -11,8 +11,8 @@ module ProbOracles
   )
 where
 
+import Circuit.Axioma.Test (approx, pairBoolFns, pairDoubleFns)
 import Circuit.Prob (Prob (..))
-import Circuit.Tools.Test (approx, pairBoolFns, pairDoubleFns)
 import Prelude hiding (curry, id, uncurry, (.))
 
 -- | Equality oracle for @Prob (->) r a b@ using a supplied input set and

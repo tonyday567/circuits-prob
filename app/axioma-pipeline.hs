@@ -9,19 +9,19 @@
 -- Split off from 'axioma.hs' because that file had become unwieldy.
 module Main where
 
-import Circuit.Bimonoid (Copy (..), Discard (..))
-import Circuit.Category (id, (.), (.>))
-import Circuit.FinRel
-import Circuit.Markov (copyNatural, deterministic, discardNatural)
-import Circuit.Prob (Prob (..), choiceBy, copyP, discardP, embed, fromWeighted, parFG, parGF, score)
-import Circuit.Tensor (Tensor (..))
-import Circuit.Tools.Test
+import Circuit.Axioma.Test
   ( allBoolFns,
     approx,
     check,
     pairBoolFns,
     pairDoubleFns,
   )
+import Circuit.Bimonoid (Copy (..), Discard (..))
+import Circuit.Category (id, (.), (.>))
+import Circuit.FinRel
+import Circuit.Markov (copyNatural, deterministic, discardNatural)
+import Circuit.Prob (Prob (..), choiceBy, copyP, discardP, embed, fromWeighted, parFG, parGF, score)
+import Circuit.Tensor (Tensor (..))
 import ProbOracles
   ( probCopySep,
     probCopySepDouble,

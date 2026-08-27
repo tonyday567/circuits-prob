@@ -58,7 +58,6 @@ executable circuits-prob-axioma
     base >=4.20 && <5,
     circuits >=0.3 && <0.4,
     circuits-prob,
-    circuits-tools >=0.1 && <0.2,
 
 executable circuits-prob-axioma-pipeline
   import: ghc-options-stanza
@@ -72,4 +71,3 @@ executable circuits-prob-axioma-pipeline
     base >=4.20 && <5,
     circuits >=0.3 && <0.4,
     circuits-prob,
-    circuits-tools >=0.1 && <0.2,
