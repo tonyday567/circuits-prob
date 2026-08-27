@@ -61,6 +61,7 @@ where
 
 import Circuit.Category (Category (..))
 import Circuit.Channel (Channel (..), Strength (..))
+import Circuit.Tensor (Unit, Unital (..))
 import Data.Bifunctor (second)
 import Prelude hiding (id, (.))
 import Prelude qualified
@@ -225,6 +226,19 @@ instance Channel (,) (Prob (->) r) where
 instance Strength (,) (Prob (->) r) where
   strength (Prob f) = Prob $ \k -> f (k . assoc) . assoc'
   {-# INLINE strength #-}
+
+-- | The cartesian unitors are deterministic, so they embed cleanly.  This is
+-- why the 'Unital'/'Tensor' split matters: @Prob (->) r@ is premonoidal and
+-- refuses a canonical 'Tensor' instance, but it still has honest unitors.
+instance Unital (,) (Prob (->) r) where
+  unitl = embed unitl
+  {-# INLINE unitl #-}
+  unitl' = embed unitl'
+  {-# INLINE unitl' #-}
+  unitr = embed unitr
+  {-# INLINE unitr #-}
+  unitr' = embed unitr'
+  {-# INLINE unitr' #-}
 
 -- ---------------------------------------------------------------------------
 -- Parallel nestings (Fubini on the linear fragment)

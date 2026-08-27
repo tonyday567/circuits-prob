@@ -9,6 +9,7 @@
 module Main where
 
 import Circuit.Category (K (..), id, (.))
+import Circuit.Optic (Optic, composeOptic, identityOptic, opticUpdate)
 import Circuit.Poly (Mono)
 import Circuit.Prob
   ( Prob (..),
@@ -443,7 +444,18 @@ main = do
               dAB = metricSpanDistance tropicalDist tropicalDist spanA spanB
               dBC = metricSpanDistance tropicalDist tropicalDist spanB spanC
               dAC = metricSpanDistance tropicalDist tropicalDist spanA spanC
-           in getTropical dAC <= getTropical (dAB `sMul` dBC)
+           in getTropical dAC <= getTropical (dAB `sMul` dBC),
+        -- The Unital/Tensor split lets optics exist over premonoidal Prob:
+        -- identity and composition need only Strength, and identity needs only
+        -- the deterministic unitors.
+        check "Optic over Prob Tropical: identity optic updates agree" $
+          let m = score (sMul (Tropical 2)) :: Prob (->) Tropical () ()
+              o = identityOptic :: Optic (,) (Prob (->) Tropical) () () () () ()
+           in mass (opticUpdate o m) () == mass m (),
+        check "Optic over Prob Tropical: composed identity is identity" $
+          let m = score (sMul (Tropical 2)) :: Prob (->) Tropical () ()
+              o = identityOptic :: Optic (,) (Prob (->) Tropical) () () () () ()
+           in mass (opticUpdate (composeOptic o o) m) () == mass m ()
       ]
   if and results
     then putStrLn "\nAll tests passed."
