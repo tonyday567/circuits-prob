@@ -60,7 +60,7 @@ module Circuit.Prob
 where
 
 import Circuit.Category (Category (..))
-import Circuit.Channel (Channel (..), Strength (..))
+import Circuit.Traced (Assoc (..), Slide (..), Strength (..), Yank (..))
 import Circuit.Tensor (Unit, Unital (..))
 import Data.Bifunctor (second)
 import Prelude hiding (id, (.))
@@ -213,13 +213,14 @@ orP = choiceBy (||)
 -- non-trivial one: it instantiates the rank-2 context @x@ at @(x, s)@,
 -- which is exactly why the universally quantified context is the honest cost
 -- of the tensor.
-instance Channel (,) (Prob (->) r) where
+instance Assoc (,) (Prob (->) r) where
   assoc = embed assoc
   {-# INLINE assoc #-}
 
   assoc' = embed assoc'
   {-# INLINE assoc' #-}
 
+instance Slide (,) (Prob (->) r) where
   slide = embed slide
   {-# INLINE slide #-}
 
