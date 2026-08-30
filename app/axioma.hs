@@ -113,7 +113,7 @@ reach target = runProb (traceE walkBody) (\((), s) -> s == target) ((), 0)
 expectSystem ::
   (Eq s, Semiring r) =>
   [s] ->
-  Moore (,) (Prob (->) r) s (Mono i o) ->
+  Moore (,) s (Prob (->) r) (Mono i o) ->
   [i] ->
   (s -> r) ->
   s ->
@@ -139,7 +139,7 @@ data S3 = S0 | S1 | S2
 --
 -- From each state, stay with probability 0.5 and move to the next state
 -- (cyclically) with probability 0.5.
-chain3Prob :: Moore (,) (Prob (->) Double) S3 (Mono () ())
+chain3Prob :: Moore (,) S3 (Prob (->) Double) (Mono () ())
 chain3Prob = moore $ Prob $ \k (x, (s, _)) ->
   let next = case s of
         S0 -> [(S0, 0.5), (S1, 0.5)]
@@ -151,7 +151,7 @@ chain3Prob = moore $ Prob $ \k (x, (s, _)) ->
 --
 -- Staying costs 1, moving costs 2. The cheapest n-step path to a state is the
 -- Viterbi value.
-chain3Tropical :: Moore (,) (Prob (->) Tropical) S3 (Mono () ())
+chain3Tropical :: Moore (,) S3 (Prob (->) Tropical) (Mono () ())
 chain3Tropical = moore $ Prob $ \k (x, (s, _)) ->
   let next = case s of
         S0 -> [(S0, Tropical 1), (S1, Tropical 2)]
@@ -205,7 +205,7 @@ nextS S2 = S0
 -- This is the reachability / model-checking row:
 -- @expectSystem@ with @r = Bool@ answers "is there a path from @s0@ to a state
 -- satisfying @q@ in exactly @n@ steps?"
-chain3Bool :: Moore (,) (Prob (->) Bool) S3 (Mono () ())
+chain3Bool :: Moore (,) S3 (Prob (->) Bool) (Mono () ())
 chain3Bool = moore $ Prob $ \k (x, (s, _)) ->
   let next = case s of
         S0 -> [S0, S1]
@@ -255,7 +255,7 @@ sampleDouble ref = do
 
 -- | Monte Carlo version of the three-state chain: sample a successor rather
 -- than enumerating the expectation.
-chain3IO :: IORef RNG -> Moore (,) (Prob (K IO) Double) S3 (Mono () ())
+chain3IO :: IORef RNG -> Moore (,) S3 (Prob (K IO) Double) (Mono () ())
 chain3IO ref = moore $ Prob $ \k -> K $ \(x, (s, _)) -> do
   u <- sampleDouble ref
   let s' = if u < 0.5 then s else nextS s
@@ -266,7 +266,7 @@ chain3IO ref = moore $ Prob $ \k -> K $ \(x, (s, _)) -> do
 -- The continuation passed to 'runProb' returns a dummy scalar and writes the
 -- sampled next state into a fresh 'IORef'; this is how we extract the state
 -- from an expectation transformer.
-runTrajectoryIO :: Moore (,) (Prob (K IO) Double) S3 (Mono () ()) -> Int -> S3 -> IO S3
+runTrajectoryIO :: Moore (,) S3 (Prob (K IO) Double) (Mono () ()) -> Int -> S3 -> IO S3
 runTrajectoryIO sys = go
   where
     go 0 s = pure s
@@ -279,7 +279,7 @@ runTrajectoryIO sys = go
 
 -- | Empirical occupancy probabilities after @nSteps@, estimated from
 -- @nTrials@ trajectories starting at @s0@.
-mcOccupancy :: Moore (,) (Prob (K IO) Double) S3 (Mono () ()) -> Int -> Int -> S3 -> IO [Double]
+mcOccupancy :: Moore (,) S3 (Prob (K IO) Double) (Mono () ()) -> Int -> Int -> S3 -> IO [Double]
 mcOccupancy sys nTrials nSteps s0 = do
   counts <- newIORef (0 :: Int, 0, 0)
   let trial = do
