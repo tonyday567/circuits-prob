@@ -60,8 +60,8 @@ module Circuit.Prob
 where
 
 import Circuit.Category (Category (..))
-import Circuit.Traced (Assoc (..), Slide (..), Strength (..), Yank (..))
 import Circuit.Tensor (Unit, Unital (..))
+import Circuit.Traced (Assoc (..), Slide (..), Strength (..), Yank (..))
 import Data.Bifunctor (second)
 import Prelude hiding (id, (.))
 import Prelude qualified

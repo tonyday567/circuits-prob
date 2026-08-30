@@ -10,6 +10,7 @@ module Main where
 
 import Circuit.Axioma.Test (approx, check)
 import Circuit.Category (K (..), id, (.))
+import Circuit.Moore (Moore, monoIn, moore, mooreMorphism)
 import Circuit.Optic (Optic, composeOptic, identityOptic, opticUpdate)
 import Circuit.Poly (Mono)
 import Circuit.Prob
@@ -28,7 +29,6 @@ import Circuit.Prob
   )
 import Circuit.Prob.Metric (MetricSpace (..), spanDistanceTropical)
 import Circuit.Span (Span (..), spanDistance)
-import Circuit.Moore (Moore, monoIn, moore, mooreMorphism)
 import Control.Monad (replicateM_)
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
 import Data.List (foldl', replicate)
