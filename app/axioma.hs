@@ -11,7 +11,7 @@ module Main where
 import Circuit.Axioma.Test (approx, check)
 import Circuit.Category (K (..), id, (.))
 import Circuit.Moore (Moore, monoIn, moore, mooreMorphism)
-import Circuit.Optic (Optic, composeOptic, identityOptic, opticUpdate)
+import Circuit.Optic (POptic, composePOptic, identityPOptic, popticUpdate)
 import Circuit.Poly (Mono)
 import Circuit.Prob
   ( Prob (..),
@@ -431,12 +431,12 @@ main = do
         -- the deterministic unitors.
         check "Optic over Prob Tropical: identity optic updates agree" $
           let m = score (sMul (Tropical 2)) :: Prob (->) Tropical () ()
-              o = identityOptic :: Optic (,) (Prob (->) Tropical) () () () () ()
-           in mass (opticUpdate o m) () == mass m (),
+              o = identityPOptic :: POptic (,) () (Prob (->) Tropical) () () () ()
+           in mass (popticUpdate o m) () == mass m (),
         check "Optic over Prob Tropical: composed identity is identity" $
           let m = score (sMul (Tropical 2)) :: Prob (->) Tropical () ()
-              o = identityOptic :: Optic (,) (Prob (->) Tropical) () () () () ()
-           in mass (opticUpdate (composeOptic o o) m) () == mass m ()
+              o = identityPOptic :: POptic (,) () (Prob (->) Tropical) () () () ()
+           in mass (popticUpdate (composePOptic o o) m) () == mass m ()
       ]
   if and results
     then putStrLn "\nAll tests passed."
