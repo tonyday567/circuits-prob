@@ -9,7 +9,7 @@
 -- A morphism @Prob arr r a b@ is an expectation transformer: it turns a
 -- continuation @arr (x, b) r@ (a "test" on the output) into a continuation
 -- @arr (x, a) r@ (a test on the input).  The rank-2 quantification over @x@
--- is the cost of arrow-polymorphism — the same move used by 'Circuit.Poles'.
+-- is the cost of arrow-polymorphism — the same move used by 'Circuit.Equip'.
 --
 -- This is the categorical substrate for probability, conditioning, and
 -- verification: choosing the dualizing object @r@ picks the semantics.
