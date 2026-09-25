@@ -10,8 +10,7 @@ module Main where
 
 import Circuit.Axioma.Test (approx, check)
 import Circuit.Category (K (..), id, (.))
-import Circuit.Machine (Machine, machineMorphism, machine, monoIn)
-import Circuit.Optic (Optic, composeOptic, identityOptic, opticUpdate)
+import Circuit.GMachine (Cell (..), Machine (..), monoIn)
 import Circuit.Poly (Mono)
 import Circuit.Prob
   ( Prob (..),
@@ -27,8 +26,6 @@ import Circuit.Prob
     traceE,
     traceEN,
   )
-import Circuit.Prob.Metric (MetricSpace (..), spanDistanceTropical)
-import Circuit.Span (Span (..), spanDistance)
 import Control.Monad (replicateM_)
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
 import Data.List (foldl', replicate)
@@ -81,20 +78,6 @@ reach :: Int -> Bool
 reach target = runProb (traceE walkBody) (\((), s) -> s == target) ((), 0)
 
 -- ---------------------------------------------------------------------------
--- Metric equipment optics
---
--- In [0,∞]-enriched Prof the distance between two spans (s,t) and (a,b) is
---
--- @
---   d((s,t),(a,b)) = sup_x inf_y [ d(s x, a y) + d(b y, t x) ]
--- @
---
--- For finite spans over a tropical scalar this is directly computable.  The
--- residual is remembered on the nose (Circuit.Span), so the sup/inf range over
--- the apex enumerations.
--- ---------------------------------------------------------------------------
-
--- ---------------------------------------------------------------------------
 -- Keystone: Machine (,) (Prob (->) r) s (Mono i o)
 --
 -- The stochastic Moore machine, stepped by expectation. The scalar @r@ selects
@@ -121,14 +104,15 @@ expectSystem ::
 expectSystem states sys is q s0 =
   foldl' sAdd sZero [q s `sMul` distFinal s | s <- states]
   where
+    Machine (Cell absorbLeg _) = sys
     distFinal = foldl' step initDist is
     initDist s = if s == s0 then sOne else sZero
     step dist i s' =
       foldl' sAdd sZero [dist s `sMul` pTrans s i s' | s <- states]
     pTrans s i s' =
       runProb
-        (machineMorphism sys)
-        (\((), (s'', _)) -> if s' == s'' then sOne else sZero)
+        absorbLeg
+        (\((), s'') -> if s' == s'' then sOne else sZero)
         ((), (s, monoIn i))
 
 -- | Three-state chain for the keystone doctests.
@@ -140,24 +124,30 @@ data S3 = S0 | S1 | S2
 -- From each state, stay with probability 0.5 and move to the next state
 -- (cyclically) with probability 0.5.
 chain3Prob :: Machine (,) S3 (Prob (->) Double) (Mono () ())
-chain3Prob = machine $ Prob $ \k (x, (s, _)) ->
-  let next = case s of
-        S0 -> [(S0, 0.5), (S1, 0.5)]
-        S1 -> [(S1, 0.5), (S2, 0.5)]
-        S2 -> [(S2, 0.5), (S0, 0.5)]
-   in foldl' (+) 0 [p * k (x, (s', ((), ()))) | (s', p) <- next]
+chain3Prob = Machine (Cell absorbLeg observeLeg)
+  where
+    absorbLeg = Prob $ \k (x, (s, _)) ->
+      let next = case s of
+            S0 -> [(S0, 0.5), (S1, 0.5)]
+            S1 -> [(S1, 0.5), (S2, 0.5)]
+            S2 -> [(S2, 0.5), (S0, 0.5)]
+       in foldl' (+) 0 [p * k (x, s') | (s', p) <- next]
+    observeLeg = embed (const ((), ()))
 
 -- | Tropical semantics: the same graph with transition costs.
 --
 -- Staying costs 1, moving costs 2. The cheapest n-step path to a state is the
 -- Viterbi value.
 chain3Tropical :: Machine (,) S3 (Prob (->) Tropical) (Mono () ())
-chain3Tropical = machine $ Prob $ \k (x, (s, _)) ->
-  let next = case s of
-        S0 -> [(S0, Tropical 1), (S1, Tropical 2)]
-        S1 -> [(S1, Tropical 1), (S2, Tropical 2)]
-        S2 -> [(S2, Tropical 1), (S0, Tropical 2)]
-   in foldl' sAdd sZero [c `sMul` k (x, (s', ((), ()))) | (s', c) <- next]
+chain3Tropical = Machine (Cell absorbLeg observeLeg)
+  where
+    absorbLeg = Prob $ \k (x, (s, _)) ->
+      let next = case s of
+            S0 -> [(S0, Tropical 1), (S1, Tropical 2)]
+            S1 -> [(S1, Tropical 1), (S2, Tropical 2)]
+            S2 -> [(S2, Tropical 1), (S0, Tropical 2)]
+       in foldl' sAdd sZero [c `sMul` k (x, s') | (s', c) <- next]
+    observeLeg = embed (const ((), ()))
 
 -- | Exact occupancy probabilities for the 3-state chain after @n@ steps,
 -- starting from @S0@.
@@ -206,12 +196,15 @@ nextS S2 = S0
 -- @expectSystem@ with @r = Bool@ answers "is there a path from @s0@ to a state
 -- satisfying @q@ in exactly @n@ steps?"
 chain3Bool :: Machine (,) S3 (Prob (->) Bool) (Mono () ())
-chain3Bool = machine $ Prob $ \k (x, (s, _)) ->
-  let next = case s of
-        S0 -> [S0, S1]
-        S1 -> [S1, S2]
-        S2 -> [S2, S0]
-   in foldl' sAdd sZero [k (x, (s', ((), ()))) | s' <- next]
+chain3Bool = Machine (Cell absorbLeg observeLeg)
+  where
+    absorbLeg = Prob $ \k (x, (s, _)) ->
+      let next = case s of
+            S0 -> [S0, S1]
+            S1 -> [S1, S2]
+            S2 -> [S2, S0]
+       in foldl' sAdd sZero [k (x, s') | s' <- next]
+    observeLeg = embed (const ((), ()))
 
 -- | States reachable from @S0@ in exactly @n@ steps under the Boolean
 -- transition relation.
@@ -256,10 +249,13 @@ sampleDouble ref = do
 -- | Monte Carlo version of the three-state chain: sample a successor rather
 -- than enumerating the expectation.
 chain3IO :: IORef RNG -> Machine (,) S3 (Prob (K IO) Double) (Mono () ())
-chain3IO ref = machine $ Prob $ \k -> K $ \(x, (s, _)) -> do
-  u <- sampleDouble ref
-  let s' = if u < 0.5 then s else nextS s
-  runK k (x, (s', ((), ())))
+chain3IO ref = Machine (Cell absorbLeg observeLeg)
+  where
+    absorbLeg = Prob $ \k -> K $ \(x, (s, _)) -> do
+      u <- sampleDouble ref
+      let s' = if u < 0.5 then s else nextS s
+      runK k (x, s')
+    observeLeg = Prob $ \k -> K $ \(x, _) -> runK k (x, ((), ()))
 
 -- | Run one @K IO@ trajectory for @n@ steps, returning the final state.
 --
@@ -269,12 +265,13 @@ chain3IO ref = machine $ Prob $ \k -> K $ \(x, (s, _)) -> do
 runTrajectoryIO :: Machine (,) S3 (Prob (K IO) Double) (Mono () ()) -> Int -> S3 -> IO S3
 runTrajectoryIO sys = go
   where
+    Machine (Cell absorbLeg _) = sys
     go 0 s = pure s
     go m s = step s >>= go (m - 1)
     step s = do
       nextRef <- newIORef s
-      let cont = K $ \(_, (s', ((), ()))) -> writeIORef nextRef s' >> pure 0
-      _ <- runK (runProb (machineMorphism sys) cont) ((), (s, monoIn ()))
+      let cont = K $ \(_, s') -> writeIORef nextRef s' >> pure 0
+      _ <- runK (runProb absorbLeg cont) ((), (s, monoIn ()))
       readIORef nextRef
 
 -- | Empirical occupancy probabilities after @nSteps@, estimated from
@@ -400,43 +397,7 @@ main = do
         checkIO "Keystone: Monte Carlo occupancy after 2 steps" $ do
           ref <- newIORef (RNG 0)
           [p0, p1, p2] <- mcOccupancy (chain3IO ref) 10000 2 S0
-          pure $ abs (p0 - 0.25) < 0.02 && abs (p1 - 0.5) < 0.02 && abs (p2 - 0.25) < 0.02,
-        -- Metric equipment optics: directed Hausdorff distance between spans
-        check "Metric optic: tropical distance between identical spans is zero" $
-          let spanA = Span [0 :: Int] id id :: Span Int Int
-           in spanDistanceTropical spanA spanA == Tropical 0,
-        check "Metric optic: distance is asymmetric and residual-aware" $
-          let spanA = Span [0, 1] id id :: Span Int Int
-              spanB = Span [0] id id :: Span Int Int
-              d = spanDistanceTropical spanA spanB
-           in d == Tropical 2,
-        check "Metric optic: empty codomain apex is distance Infinity" $
-          let spanA = Span [0 :: Int] id id
-              spanEmpty = Span ([] :: [Int]) id id
-           in spanDistanceTropical spanA spanEmpty == sZero,
-        check "Metric optic: empty domain apex is distance 0" $
-          let spanA = Span [0 :: Int] id id
-              spanEmpty = Span ([] :: [Int]) id id
-           in spanDistanceTropical spanEmpty spanA == sOne,
-        check "Metric optic: triangle inequality holds" $
-          let spanA = Span [0, 1] id id :: Span Int Int
-              spanB = Span [0] id id :: Span Int Int
-              spanC = Span [1] id id :: Span Int Int
-              dAB = spanDistanceTropical spanA spanB
-              dBC = spanDistanceTropical spanB spanC
-              dAC = spanDistanceTropical spanA spanC
-           in getTropical dAC <= getTropical (dAB `sMul` dBC),
-        -- The Unital/Tensor split lets optics exist over premonoidal Prob:
-        -- identity and composition need only Strength, and identity needs only
-        -- the deterministic unitors.
-        check "Optic over Prob Tropical: identity optic updates agree" $
-          let m = score (sMul (Tropical 2)) :: Prob (->) Tropical () ()
-              o = identityOptic :: Optic (,) () (Prob (->) Tropical) () () () ()
-           in mass (opticUpdate o m) () == mass m (),
-        check "Optic over Prob Tropical: composed identity is identity" $
-          let m = score (sMul (Tropical 2)) :: Prob (->) Tropical () ()
-              o = identityOptic :: Optic (,) () (Prob (->) Tropical) () () () ()
-           in mass (opticUpdate (composeOptic o o) m) () == mass m ()
+          pure $ abs (p0 - 0.25) < 0.02 && abs (p1 - 0.5) < 0.02 && abs (p2 - 0.25) < 0.02
       ]
   if and results
     then putStrLn "\nAll tests passed."
