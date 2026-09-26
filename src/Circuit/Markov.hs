@@ -34,7 +34,7 @@ where
 
 import Circuit.Bimonoid (Copy (..), Discard (..))
 import Circuit.Category (Category (..))
-import Circuit.Tensor (Tensor (..))
+import Circuit.Tensor (SemiTensor (..), Tensor)
 import Prelude hiding (id, (.))
 
 -- | Test whether @f@ is a homomorphism from the copy comonoid on @a@ to the
