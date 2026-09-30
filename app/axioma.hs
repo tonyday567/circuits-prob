@@ -10,7 +10,8 @@ module Main where
 
 import Circuit.Axioma.Test (approx, check)
 import Circuit.Category (K (..), id, (.))
-import Circuit.GMachine (Cell (..), Machine (..), monoIn)
+import Circuit.GMachine (Cell (..), Machine (..))
+import Circuit.Poly (monoIn)
 import Circuit.Poly (Mono)
 import Circuit.Prob
   ( Prob (..),
