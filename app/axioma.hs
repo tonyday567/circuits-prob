@@ -11,8 +11,7 @@ module Main where
 import Circuit.Axioma.Test (approx, check)
 import Circuit.Category (K (..), id, (.))
 import Circuit.GMachine (Cell (..), Machine (..))
-import Circuit.Poly (monoIn)
-import Circuit.Poly (Mono)
+import Circuit.Poly (Mono, monoIn)
 import Circuit.Prob
   ( Prob (..),
     Semiring (..),

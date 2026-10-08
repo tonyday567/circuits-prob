@@ -18,9 +18,9 @@ import Circuit.Axioma.Test
   )
 import Circuit.Bimonoid (Copy (..), Discard (..))
 import Circuit.Category (id, (.), (.>))
-import Circuit.Rel
 import Circuit.Markov (copyNatural, deterministic, discardNatural)
 import Circuit.Prob (Prob (..), choiceBy, copyP, discardP, embed, fromWeighted, parFG, parGF, score)
+import Circuit.Rel
 import Circuit.Tensor (Tensor)
 import ProbOracles
   ( probCopySep,
