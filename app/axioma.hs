@@ -10,12 +10,13 @@ module Main where
 
 import Circuit.Axioma.Test (approx, check)
 import Circuit.Category (K (..), id, (.))
-import Circuit.GMachine (Cell (..), Machine (..))
+import Circuit.Machine (Body (..), MooreP)
 import Circuit.Poly (Mono, monoIn)
 import Circuit.Prob
   ( Prob (..),
     Semiring (..),
     Tropical (..),
+    discardP,
     embed,
     fromWeighted,
     mass,
@@ -26,6 +27,7 @@ import Circuit.Prob
     traceE,
     traceEN,
   )
+import Circuit.Tensor (Const (..))
 import Control.Monad (replicateM_)
 import Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
 import Data.List (foldl', replicate)
@@ -78,10 +80,16 @@ reach :: Int -> Bool
 reach target = runProb (traceE walkBody) (\((), s) -> s == target) ((), 0)
 
 -- ---------------------------------------------------------------------------
--- Keystone: Machine (,) (Prob (->) r) s (Mono i o)
+-- Keystone: MooreP (,) s (Prob (->) r) (Mono i o)
 --
 -- The stochastic Moore machine, stepped by expectation. The scalar @r@ selects
 -- the semantics: @Double@ for probability, @Tropical@ for min-plus / Viterbi.
+--
+-- The old @Machine@ carried no seed — the runners seeded a point mass at the
+-- caller's @s0@. The 'Body' spelling must name an 'init' leg, so each chain
+-- seeds with the unnormalised uniform over 'S3' — the counting measure,
+-- "start anywhere" — while the runners still destructure the body and seed
+-- externally.
 -- ---------------------------------------------------------------------------
 
 -- | Run a finite-state stochastic Moore machine by expectation.
@@ -96,7 +104,7 @@ reach target = runProb (traceE walkBody) (\((), s) -> s == target) ((), 0)
 expectSystem ::
   (Eq s, Semiring r) =>
   [s] ->
-  Machine (,) s (Prob (->) r) (Mono i o) ->
+  MooreP (,) s (Prob (->) r) (Mono i o) ->
   [i] ->
   (s -> r) ->
   s ->
@@ -104,14 +112,14 @@ expectSystem ::
 expectSystem states sys is q s0 =
   foldl' sAdd sZero [q s `sMul` distFinal s | s <- states]
   where
-    Machine (Cell absorbLeg _) = sys
+    Body _ commitLeg _ = sys
     distFinal = foldl' step initDist is
     initDist s = if s == s0 then sOne else sZero
     step dist i s' =
       foldl' sAdd sZero [dist s `sMul` pTrans s i s' | s <- states]
     pTrans s i s' =
       runProb
-        absorbLeg
+        commitLeg
         (\((), s'') -> if s' == s'' then sOne else sZero)
         ((), (s, monoIn i))
 
@@ -123,31 +131,33 @@ data S3 = S0 | S1 | S2
 --
 -- From each state, stay with probability 0.5 and move to the next state
 -- (cyclically) with probability 0.5.
-chain3Prob :: Machine (,) S3 (Prob (->) Double) (Mono () ())
-chain3Prob = Machine (Cell absorbLeg observeLeg)
+chain3Prob :: MooreP (,) S3 (Prob (->) Double) (Mono () ())
+chain3Prob = Body initLeg commitLeg emitLeg
   where
-    absorbLeg = Prob $ \k (x, (s, _)) ->
+    initLeg = fromWeighted [(S0, sOne), (S1, sOne), (S2, sOne)] . discardP
+    commitLeg = Prob $ \k (x, (s, _)) ->
       let next = case s of
             S0 -> [(S0, 0.5), (S1, 0.5)]
             S1 -> [(S1, 0.5), (S2, 0.5)]
             S2 -> [(S2, 0.5), (S0, 0.5)]
        in foldl' (+) 0 [p * k (x, s') | (s', p) <- next]
-    observeLeg = embed (const ((), ()))
+    emitLeg = embed (const (Const ((), ())))
 
 -- | Tropical semantics: the same graph with transition costs.
 --
 -- Staying costs 1, moving costs 2. The cheapest n-step path to a state is the
 -- Viterbi value.
-chain3Tropical :: Machine (,) S3 (Prob (->) Tropical) (Mono () ())
-chain3Tropical = Machine (Cell absorbLeg observeLeg)
+chain3Tropical :: MooreP (,) S3 (Prob (->) Tropical) (Mono () ())
+chain3Tropical = Body initLeg commitLeg emitLeg
   where
-    absorbLeg = Prob $ \k (x, (s, _)) ->
+    initLeg = fromWeighted [(S0, sOne), (S1, sOne), (S2, sOne)] . discardP
+    commitLeg = Prob $ \k (x, (s, _)) ->
       let next = case s of
             S0 -> [(S0, Tropical 1), (S1, Tropical 2)]
             S1 -> [(S1, Tropical 1), (S2, Tropical 2)]
             S2 -> [(S2, Tropical 1), (S0, Tropical 2)]
        in foldl' sAdd sZero [c `sMul` k (x, s') | (s', c) <- next]
-    observeLeg = embed (const ((), ()))
+    emitLeg = embed (const (Const ((), ())))
 
 -- | Exact occupancy probabilities for the 3-state chain after @n@ steps,
 -- starting from @S0@.
@@ -195,16 +205,17 @@ nextS S2 = S0
 -- This is the reachability / model-checking row:
 -- @expectSystem@ with @r = Bool@ answers "is there a path from @s0@ to a state
 -- satisfying @q@ in exactly @n@ steps?"
-chain3Bool :: Machine (,) S3 (Prob (->) Bool) (Mono () ())
-chain3Bool = Machine (Cell absorbLeg observeLeg)
+chain3Bool :: MooreP (,) S3 (Prob (->) Bool) (Mono () ())
+chain3Bool = Body initLeg commitLeg emitLeg
   where
-    absorbLeg = Prob $ \k (x, (s, _)) ->
+    initLeg = fromWeighted [(S0, sOne), (S1, sOne), (S2, sOne)] . discardP
+    commitLeg = Prob $ \k (x, (s, _)) ->
       let next = case s of
             S0 -> [S0, S1]
             S1 -> [S1, S2]
             S2 -> [S2, S0]
        in foldl' sAdd sZero [k (x, s') | s' <- next]
-    observeLeg = embed (const ((), ()))
+    emitLeg = embed (const (Const ((), ())))
 
 -- | States reachable from @S0@ in exactly @n@ steps under the Boolean
 -- transition relation.
@@ -248,35 +259,38 @@ sampleDouble ref = do
 
 -- | Monte Carlo version of the three-state chain: sample a successor rather
 -- than enumerating the expectation.
-chain3IO :: IORef RNG -> Machine (,) S3 (Prob (K IO) Double) (Mono () ())
-chain3IO ref = Machine (Cell absorbLeg observeLeg)
+chain3IO :: IORef RNG -> MooreP (,) S3 (Prob (K IO) Double) (Mono () ())
+chain3IO ref = Body initLeg commitLeg emitLeg
   where
-    absorbLeg = Prob $ \k -> K $ \(x, (s, _)) -> do
+    initLeg = Prob $ \k -> K $ \(x, _) -> do
+      rs <- traverse (\s' -> runK k (x, s')) [S0, S1, S2]
+      pure (foldl' (+) 0 rs)
+    commitLeg = Prob $ \k -> K $ \(x, (s, _)) -> do
       u <- sampleDouble ref
       let s' = if u < 0.5 then s else nextS s
       runK k (x, s')
-    observeLeg = Prob $ \k -> K $ \(x, _) -> runK k (x, ((), ()))
+    emitLeg = Prob $ \k -> K $ \(x, _) -> runK k (x, Const ((), ()))
 
 -- | Run one @K IO@ trajectory for @n@ steps, returning the final state.
 --
 -- The continuation passed to 'runProb' returns a dummy scalar and writes the
 -- sampled next state into a fresh 'IORef'; this is how we extract the state
 -- from an expectation transformer.
-runTrajectoryIO :: Machine (,) S3 (Prob (K IO) Double) (Mono () ()) -> Int -> S3 -> IO S3
+runTrajectoryIO :: MooreP (,) S3 (Prob (K IO) Double) (Mono () ()) -> Int -> S3 -> IO S3
 runTrajectoryIO sys = go
   where
-    Machine (Cell absorbLeg _) = sys
+    Body _ commitLeg _ = sys
     go 0 s = pure s
     go m s = step s >>= go (m - 1)
     step s = do
       nextRef <- newIORef s
       let cont = K $ \(_, s') -> writeIORef nextRef s' >> pure 0
-      _ <- runK (runProb absorbLeg cont) ((), (s, monoIn ()))
+      _ <- runK (runProb commitLeg cont) ((), (s, monoIn ()))
       readIORef nextRef
 
 -- | Empirical occupancy probabilities after @nSteps@, estimated from
 -- @nTrials@ trajectories starting at @s0@.
-mcOccupancy :: Machine (,) S3 (Prob (K IO) Double) (Mono () ()) -> Int -> Int -> S3 -> IO [Double]
+mcOccupancy :: MooreP (,) S3 (Prob (K IO) Double) (Mono () ()) -> Int -> Int -> S3 -> IO [Double]
 mcOccupancy sys nTrials nSteps s0 = do
   counts <- newIORef (0 :: Int, 0, 0)
   let trial = do
@@ -365,8 +379,8 @@ main = do
            in approx (e 60) 2.0 && e 5 < e 20 && e 20 < e 60,
         check "Prob Bool trace reachability via lazy (||)" $
           reach 2,
-        -- Keystone: Machine (,) (Prob (->) r) s (Mono i o)
-        check "Keystone: Machine (,) (Prob Double) S3 (Mono () ()) typechecks" $
+        -- Keystone: MooreP (,) (Prob (->) r) s (Mono i o)
+        check "Keystone: MooreP (,) (Prob Double) S3 (Mono () ()) typechecks" $
           length (occupancyProb 0) == 3,
         check "Keystone: exact occupancy after 2 steps" $
           occupancyProb 2 == [0.25, 0.5, 0.25],
@@ -376,21 +390,21 @@ main = do
                 [p0', p1', p2'] -> (p0', p1', p2')
                 _ -> error "unreachable" -- occupancyProb 3 returns exactly three probabilities
            in approx p0 0.25 && approx p1 0.375 && approx p2 0.375,
-        check "Keystone: Machine (,) (Prob Tropical) S3 (Mono () ()) typechecks" $
+        check "Keystone: MooreP (,) (Prob Tropical) S3 (Mono () ()) typechecks" $
           length (viterbiCost 0) == 3,
         check "Keystone: tropical Viterbi cost after 2 steps" $
           viterbiCost 2 == [2.0, 3.0, 4.0],
         check "Keystone: tropical Viterbi cost after 3 steps" $
           viterbiCost 3 == [3.0, 4.0, 5.0],
         -- Bool reachability row
-        check "Keystone: Machine (,) (Prob Bool) S3 (Mono () ()) typechecks" $
+        check "Keystone: MooreP (,) (Prob Bool) S3 (Mono () ()) typechecks" $
           length (reachable 0) == 1,
         check "Keystone: reachability after 1 step" $
           reachable 1 == [S0, S1],
         check "Keystone: reachability after 2 steps" $
           reachable 2 == [S0, S1, S2],
         -- K IO Monte Carlo row
-        checkIO "Keystone: Machine (,) (Prob (K IO) Double) S3 (Mono () ()) typechecks" $ do
+        checkIO "Keystone: MooreP (,) (Prob (K IO) Double) S3 (Mono () ()) typechecks" $ do
           ref <- newIORef (RNG 0)
           occ <- mcOccupancy (chain3IO ref) 10000 2 S0
           pure $ length occ == 3,
