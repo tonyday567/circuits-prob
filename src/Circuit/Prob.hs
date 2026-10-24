@@ -61,7 +61,7 @@ where
 
 import Circuit.Category (Category (..))
 import Circuit.Tensor (Unit, Unital (..))
-import Circuit.Traced (Assoc (..), Slide (..), Strength (..), Yank (..))
+import Circuit.Traced (Assoc (..), OuterSwap (..), Strength (..), Trace (..))
 import Data.Bifunctor (second)
 import Prelude hiding (id, (.))
 import Prelude qualified
@@ -220,9 +220,9 @@ instance Assoc (,) (Prob (->) r) where
   assoc' = embed assoc'
   {-# INLINE assoc' #-}
 
-instance Slide (,) (Prob (->) r) where
-  slide = embed slide
-  {-# INLINE slide #-}
+instance OuterSwap (,) (Prob (->) r) where
+  outerSwap = embed outerSwap
+  {-# INLINE outerSwap #-}
 
 instance Strength (,) (Prob (->) r) where
   strength (Prob f) = Prob $ \k -> f (k . assoc) . assoc'
